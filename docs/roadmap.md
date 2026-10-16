@@ -4,11 +4,11 @@ Driven by the Water Puck carrier (sensei-cup). A feature is added when that boar
 
 ## Milestone 1 — the loop exists (Oct 2026)
 - [x] Landscape survey (docs/landscape)
-- [ ] `cl connect`: find the open board over IPC, print name, layers, net count
-- [ ] `cl see X Y W H [--layers F.Cu,B.Cu,...]`: region PNG per layer via kicad-cli svg + crop
-- [ ] `cl gate`: kicad-cli DRC json + schematic parity, one-line verdict, diff vs last run
-- [ ] `cl fanout NET`: stub + via per pad into a plane, one IPC commit per pad, gate after
-- [ ] Prove: 3V3 fully fanned out on the puck, live, 0 new errors, no file copying
+- [x] `cl connect`: find the open board over IPC, print name, layers, net count
+- [x] `cl see X Y W H [--layers F.Cu,B.Cu,...]`: region PNG per layer via kicad-cli svg + crop
+- [x] `cl gate`: kicad-cli DRC json + schematic parity, one-line verdict, diff vs last run
+- [x] `cl fanout NET`: stub + via per pad into a plane, one IPC commit per pad, gate after
+- [x] Prove: 3V3 fully fanned out on the puck, live, 0 new errors, no file copying (2026-10-16: 17 pads, 5 under the no-via disc left for hand routing, unconnected 165 → 149)
 
 ## Milestone 2 — per-net routing transactions
 - [ ] `cl route NET`: plan (collision-checked, our routelib / KiCadRoutingTools) → IPC commit → gate → keep/drop

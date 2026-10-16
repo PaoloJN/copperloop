@@ -38,12 +38,22 @@ examples/          worked boards
 | Research | DigiKey v4, Mouser, jlcparts, GitHub search, kicad-happy datasheets | planned |
 | Schematic | KiCad GUI, kicad-cli erc/bom/netlist, kicad-happy review | planned |
 | Placement | polar/scripted placement, region render | legacy |
-| Fan-out | `cl fanout NET` over IPC, one commit per pad | milestone 1 |
+| Fan-out | `cl fanout NET` over IPC, one commit per pad | works |
 | Routing | per-net propose/gate/accept; Freerouting only for easy nets | milestone 2 |
-| Verification | `cl gate` = DRC json + parity + diff vs last run | milestone 1 |
-| Seeing | `cl see X Y W H --layer` region PNG | milestone 1 |
+| Verification | `cl gate [--live]` = DRC json + parity + diff vs last run | works |
+| Seeing | `cl see X Y W H -l layers` region PNG, live or from file | works |
 | Fab | kicad-cli gerbers/drill/pos, JLC design rules, Fabrication Toolkit | planned |
 | Bring-up | probe-rs, OpenHTF | planned |
+
+## Commands
+
+```
+cl connect                      # summary of the board open in the KiCad PCB editor
+cl gate [BOARD] [--live]        # DRC + parity; PASS only if nothing got worse since last run
+cl see X Y W H [-l F.Cu,B.Cu]   # region PNG per layer (board mm); live board unless --board FILE
+cl fanout NET... [--apply]      # stub + via per pad into a plane; plan only unless --apply
+```
+`fanout --apply` makes one undoable commit per pad in the open editor, refills zones, then gates.
 
 ## Setup
 

@@ -3,6 +3,7 @@ README.md
 pyproject.toml
 copperloop/__init__.py
 copperloop/cli.py
+copperloop/fanout.py
 copperloop/gate.py
 copperloop/render.py
 copperloop.egg-info/PKG-INFO
@@ -33,3 +34,4 @@ copperloop/legacy/sync_board.py
 copperloop/legacy/verify_design.py
 copperloop/legacy/router/strip_thin.py
 copperloop/route/__init__.py
+copperloop/route/fanout_plan.py
