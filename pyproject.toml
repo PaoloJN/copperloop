@@ -1,0 +1,22 @@
+[project]
+name = "copperloop"
+version = "0.0.1"
+description = "Agent-driven PCB design on KiCad 10: live edits over IPC, kicad-cli as the only truth, a propose-gate-accept loop."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = ["kicad-python>=0.8", "click>=8"]
+
+[project.optional-dependencies]
+route = ["numpy", "scipy", "shapely", "matplotlib"]
+render = ["cairosvg"]
+
+[project.scripts]
+cl = "copperloop.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["copperloop*"]

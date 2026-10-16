@@ -1,0 +1,11 @@
+kicad-python>=0.8
+click>=8
+
+[render]
+cairosvg
+
+[route]
+numpy
+scipy
+shapely
+matplotlib

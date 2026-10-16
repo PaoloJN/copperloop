@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.kicad_prl
+*-backups/
+.history/
+*.bak
+*.pre-*
+/out/
+/scratch/
+.env
