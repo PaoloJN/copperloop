@@ -44,6 +44,7 @@ def clr_of(net):
     return class_clr.get('Default', min_clr)
 def clr(n1, n2): return max(clr_of(n1), clr_of(n2), min_clr)
 
+KEEP = []   # planned PCB items kept alive; their GetEffectiveShape() supports Collide(SHAPE) unlike bare SHAPE_CIRCLE/SEGMENT
 # --- obstacle model
 obst = []
 for f in b.GetFootprints():
@@ -77,6 +78,35 @@ def check_via(x, y, net, d):
         if sh.Collide(c, mm(clr(net, n))): probs.append(f'via ({x},{y}) hits {lab} (need {clr(net, n)} mm)')
     return probs
 
+def arc_points(sx, sy, mx, my, ex, ey, n=24):
+    """Sample points along the circular arc through start, mid, end (board mm)."""
+    ax, ay, bx, by, cx_, cy_ = sx, sy, mx, my, ex, ey
+    d = 2 * (ax * (by - cy_) + bx * (cy_ - ay) + cx_ * (ay - by))
+    if abs(d) < 1e-9: return [(sx, sy), (mx, my), (ex, ey)]
+    ux = ((ax * ax + ay * ay) * (by - cy_) + (bx * bx + by * by) * (cy_ - ay) + (cx_ * cx_ + cy_ * cy_) * (ay - by)) / d
+    uy = ((ax * ax + ay * ay) * (cx_ - bx) + (bx * bx + by * by) * (ax - cx_) + (cx_ * cx_ + cy_ * cy_) * (bx - ax)) / d
+    r = math.hypot(ax - ux, ay - uy)
+    a0, am, a1 = (math.atan2(y - uy, x - ux) for x, y in ((sx, sy), (mx, my), (ex, ey)))
+    # choose the sweep direction that passes through the mid point
+    def norm(t): return (t + 2 * math.pi) % (2 * math.pi)
+    ccw = norm(am - a0) < norm(a1 - a0)
+    sweep = norm(a1 - a0) if ccw else -norm(a0 - a1)
+    return [(ux + r * math.cos(a0 + sweep * i / n), uy + r * math.sin(a0 + sweep * i / n)) for i in range(n + 1)]
+
+def check_arc(sx, sy, mx, my, ex, ey, w, layer, net):
+    probs = []; lid = LAYERS[layer]
+    t = pcbnew.PCB_ARC(b); t.SetStart(P(sx, sy)); t.SetMid(P(mx, my)); t.SetEnd(P(ex, ey)); t.SetWidth(mm(w)); t.SetLayer(lid); KEEP.append(t)
+    arc = t.GetEffectiveShape()
+    for sh, n, l, lab in obst:
+        if n == net or (l is not None and l != lid): continue
+        if sh.Collide(arc, mm(clr(net, n))): probs.append(f'arc ({sx},{sy})~({ex},{ey}) {layer} hits {lab} (need {clr(net, n)} mm)')
+    pts_ = arc_points(sx, sy, mx, my, ex, ey)
+    for name, o, layers in no_trk:
+        if lid in layers and any(o.Collide(P(px, py), mm(w / 2)) for px, py in pts_): probs.append(f'arc ({sx},{sy})~({ex},{ey}) inside no-track area {name} on {layer}')
+    for px, py in pts_:
+        if math.hypot(px - CX, py - CY) + w / 2 + edge_clr > R: probs.append(f'arc ({sx},{sy})~({ex},{ey}) too close to the board edge'); break
+    return probs, arc
+
 def check_seg(x1, y1, x2, y2, w, layer, net):
     probs = []; lid = LAYERS[layer]
     s = pcbnew.SHAPE_SEGMENT(P(x1, y1), P(x2, y2), mm(w))
@@ -91,20 +121,54 @@ def check_seg(x1, y1, x2, y2, w, layer, net):
         if math.hypot(px - CX, py - CY) + w / 2 + edge_clr > R: probs.append(f'seg end ({px},{py}) too close to the board edge')
     return probs
 
+def near(ax, ay, bx, by, tol=0.05): return abs(ax - bx) <= tol and abs(ay - by) <= tol
+def drop_items(e):
+    """Remove the listed same-net vias/tracks from the obstacle model; return (found, missing)."""
+    found, missing = [], []
+    for x, y in e.get('remove_vias', []):
+        hit = [i for i, (sh, n, l, lab) in enumerate(obst) if l is None and lab.startswith('via') and '@' in lab and n == e['net'] and near(x, y, *map(float, lab.split('@')[1].split(',')))]
+        (found if hit else missing).append(f'via ({x},{y})')
+        for i in sorted(hit, reverse=True): del obst[i]
+    for x1, y1, x2, y2 in e.get('remove_tracks', []):
+        hit = []
+        for t in b.GetTracks():
+            if t.GetClass() == 'PCB_VIA' or t.GetNetname() != e['net']: continue
+            sx, sy, ex, ey = tomm(t.GetStart().x), tomm(t.GetStart().y), tomm(t.GetEnd().x), tomm(t.GetEnd().y)
+            if (near(x1, y1, sx, sy) and near(x2, y2, ex, ey)) or (near(x1, y1, ex, ey) and near(x2, y2, sx, sy)): hit.append(t)
+        (found if hit else missing).append(f'track ({x1},{y1})-({x2},{y2})')
+        for t in hit:
+            key = f'track[{t.GetNetname()}]@{b.GetLayerName(t.GetLayer())}'
+            for i, (sh, n, l, lab) in enumerate(obst):
+                if lab == key and l == t.GetLayer() and sh.Collide(t.GetEffectiveShape(), 0) and sh.BBox() == t.GetEffectiveShape().BBox(): del obst[i]; break
+    return found, missing
+
+def planned_track(x1, y1, x2, y2, w, lid):
+    t = pcbnew.PCB_TRACK(b); t.SetStart(P(x1, y1)); t.SetEnd(P(x2, y2)); t.SetWidth(mm(w)); t.SetLayer(lid); KEEP.append(t); return t.GetEffectiveShape()
+def planned_via(x, y, d):
+    v = pcbnew.PCB_VIA(b); v.SetPosition(P(x, y)); v.SetWidth(mm(d)); v.SetDrill(mm(d / 2)); v.SetViaType(pcbnew.VIATYPE_THROUGH); KEEP.append(v); return v.GetEffectiveShape(pcbnew.F_Cu)
+def planned_arc(sx, sy, mx, my, ex, ey, w, lid):
+    t = pcbnew.PCB_ARC(b); t.SetStart(P(sx, sy)); t.SetMid(P(mx, my)); t.SetEnd(P(ex, ey)); t.SetWidth(mm(w)); t.SetLayer(lid); KEEP.append(t); return t.GetEffectiveShape()
+
 spec = json.load(open(a.spec)); results = []
 for e in spec:
     net, layer, w = e['net'], e.get('layer', 'B.Cu'), e.get('width', 0.3)
     vd, vdr = e.get('via_d', 0.6), e.get('via_drill', 0.3)
     probs = []
+    found, missing = drop_items(e)
+    probs += [f'nothing to remove at {m}' for m in missing]
     pts = e.get('pts', [])
     for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
         if (x1, y1) != (x2, y2): probs += check_seg(x1, y1, x2, y2, w, layer, net)
+    arcs = []
+    for sx, sy, mx, my, ex, ey in e.get('arcs', []):
+        pr, arc = check_arc(sx, sy, mx, my, ex, ey, w, layer, net); probs += pr; arcs.append(arc)
     for x, y in e.get('vias', []): probs += check_via(x, y, net, vd)
     ok = not probs
     if ok:  # add to the model so later entries respect it
         for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
-            if (x1, y1) != (x2, y2): obst.append((pcbnew.SHAPE_SEGMENT(P(x1, y1), P(x2, y2), mm(w)), net, LAYERS[layer], f'planned track[{net}]'))
-        for x, y in e.get('vias', []): obst.append((pcbnew.SHAPE_CIRCLE(P(x, y), mm(vd / 2)), net, None, f'via[{net}] planned'))
+            if (x1, y1) != (x2, y2): obst.append((planned_track(x1, y1, x2, y2, w, LAYERS[layer]), net, LAYERS[layer], f'planned track[{net}]'))
+        for x, y in e.get('vias', []): obst.append((planned_via(x, y, vd), net, None, f'via[{net}] planned'))
+        for sx, sy, mx, my, ex, ey in e.get('arcs', []): obst.append((planned_arc(sx, sy, mx, my, ex, ey, w, LAYERS[layer]), net, LAYERS[layer], f'planned arc[{net}]'))
     results.append({'name': e.get('name', net), 'ok': ok, 'problems': sorted(set(probs))})
 json.dump(results, open(a.json, 'w'), indent=1)
 for r in results: print(('OK   ' if r['ok'] else 'FAIL ') + r['name'] + ('' if r['ok'] else '\n    ' + '\n    '.join(r['problems'][:8])))
