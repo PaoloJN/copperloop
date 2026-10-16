@@ -95,6 +95,30 @@ def fanout(nets, apply_changes, clr, via, stub, only, gnd_pads):
     sys.exit(0 if r["ok"] else 1)
 
 @main.command()
+@click.argument("net", default="GND")
+@click.option("--apply", "apply_changes", is_flag=True, help="actually remove the redundant copper (default: plan only)")
+@click.option("--keep-ref", multiple=True, help="footprint refs whose GND clusters are left untouched (e.g. U1 U8)")
+def tidy(net, apply_changes, keep_ref):
+    """Plane-net tidy on the LIVE board: each pad keeps one stub + one via, chained/duplicate copper goes."""
+    from . import tidy as t
+    try:
+        r = t.run(net, apply_changes, list(keep_ref))
+    except ConnectionError as e:
+        click.echo(str(e), err=True); sys.exit(2)
+    for c in r["clusters"]:
+        if c["remove"]:
+            click.echo(f"  {', '.join(c['pads'])}: -{c.get('removed_vias', 0)} vias -{c.get('removed_segs', 0)} pieces  {c['note']}")
+        else:
+            click.echo(f"  {', '.join(c['pads'])}: {c['note']}")
+    click.echo(f"plan: {r['remove_count']} items to remove in {sum(1 for c in r['clusters'] if c['remove'])} clusters")
+    click.echo(f"before: {r['before']}")
+    if r["after"] is None:
+        click.echo("plan only; add --apply to remove them in the editor (Ctrl+Z undoes one cluster at a time)"); return
+    click.echo(f"removed {r['applied']} items in {r['commits']} commits")
+    click.echo(f"after:  {r['after']}  -> {'PASS' if r['ok'] else 'FAIL'}")
+    sys.exit(0 if r["ok"] else 1)
+
+@main.command()
 def version():
     """kicad-cli and kipy versions."""
     from .kicad import cli as kc

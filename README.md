@@ -52,6 +52,7 @@ cl connect                      # summary of the board open in the KiCad PCB edi
 cl gate [BOARD] [--live]        # DRC + parity; PASS only if nothing got worse since last run
 cl see X Y W H [-l F.Cu,B.Cu]   # region PNG per layer (board mm); live board unless --board FILE
 cl fanout NET... [--apply]      # stub + via per pad into a plane; plan only unless --apply
+cl tidy [NET] [--apply] [--keep-ref U1]  # each pad keeps one stub + one via; chained/duplicate copper goes
 ```
 `fanout --apply` makes one undoable commit per pad in the open editor, refills zones, then gates.
 

@@ -11,6 +11,7 @@ Driven by the Water Puck carrier (sensei-cup). A feature is added when that boar
 - [x] Prove: 3V3 fully fanned out on the puck, live, 0 new errors, no file copying (2026-10-16: 17 pads, 5 under the no-via disc left for hand routing, unconnected 165 → 149)
 
 ## Milestone 2 — per-net routing transactions
+- [x] `cl tidy NET`: redundant plane-net copper removed, one commit per cluster, gated (2026-10-16: 81 items in 25 clusters on the puck, no change in opens)
 - [ ] `cl route NET`: plan (collision-checked, our routelib / KiCadRoutingTools) → IPC commit → gate → keep/drop
 - [ ] `cl stitch`: GND via fence/array with the same gate
 - [ ] Freerouting rounds with per-net acceptance for the easy leftovers (nexatech pattern)
