@@ -119,6 +119,25 @@ def tidy(net, apply_changes, keep_ref):
     sys.exit(0 if r["ok"] else 1)
 
 @main.command()
+@click.argument("spec", type=click.Path(exists=True, path_type=Path))
+@click.option("--apply", "apply_changes", is_flag=True, help="create the routes that pass the check (default: check only)")
+@click.option("--partial", is_flag=True, help="with --apply: apply the passing entries even if others fail")
+def route(spec: Path, apply_changes: bool, partial: bool):
+    """Check a JSON route spec against the LIVE board (KiCad collision shapes, net-class clearances), then apply it one undoable commit per entry and gate."""
+    from . import routing
+    try:
+        r = routing.run(spec, apply_changes, only_ok=not partial)
+    except ConnectionError as e:
+        click.echo(str(e), err=True); sys.exit(2)
+    for x in r["results"]:
+        click.echo(("OK    " if x["ok"] else "FAIL  ") + x["name"])
+        for p in x["problems"][:8]: click.echo("      " + p)
+    if r["after"] is None:
+        click.echo("check only" if not apply_changes else "nothing applied"); sys.exit(0 if all(x["ok"] for x in r["results"]) else 1)
+    click.echo(f"applied {r['applied']} entries;  before {r['before']}  after {r['after']}  -> {'PASS' if r['ok'] else 'FAIL'}")
+    sys.exit(0 if r["ok"] else 1)
+
+@main.command()
 def version():
     """kicad-cli and kipy versions."""
     from .kicad import cli as kc

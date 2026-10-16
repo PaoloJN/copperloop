@@ -39,7 +39,7 @@ examples/          worked boards
 | Schematic | KiCad GUI, kicad-cli erc/bom/netlist, kicad-happy review | planned |
 | Placement | polar/scripted placement, region render | legacy |
 | Fan-out | `cl fanout NET` over IPC, one commit per pad | works |
-| Routing | per-net propose/gate/accept; Freerouting only for easy nets | milestone 2 |
+| Routing | `cl route` spec transactions (works); per-net planner and Freerouting rounds next | milestone 2 |
 | Verification | `cl gate [--live]` = DRC json + parity + diff vs last run | works |
 | Seeing | `cl see X Y W H -l layers` region PNG, live or from file | works |
 | Fab | kicad-cli gerbers/drill/pos, JLC design rules, Fabrication Toolkit | planned |
@@ -53,7 +53,10 @@ cl gate [BOARD] [--live]        # DRC + parity; PASS only if nothing got worse s
 cl see X Y W H [-l F.Cu,B.Cu]   # region PNG per layer (board mm); live board unless --board FILE
 cl fanout NET... [--apply]      # stub + via per pad into a plane; plan only unless --apply
 cl tidy [NET] [--apply] [--keep-ref U1]  # each pad keeps one stub + one via; chained/duplicate copper goes
+cl route SPEC.json [--apply]    # hand-planned routes: KiCad collision check with net-class clearances, one commit per entry, gate
 ```
+
+A route spec is a JSON list of `{name, net, layer, width, pts: [[x,y],...], vias: [[x,y],...]}` in board mm. Keep the specs in the project (e.g. `routes/`); they are the record of every route the agent made.
 `fanout --apply` makes one undoable commit per pad in the open editor, refills zones, then gates.
 
 ## Setup
