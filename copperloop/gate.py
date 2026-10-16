@@ -16,8 +16,13 @@ def summarise(report: dict) -> dict:
         "errors": sum(1 for x in v if x.get("severity") == "error"),
         "warnings": sum(1 for x in v if x.get("severity") == "warning"),
         "unconnected": len(report.get("unconnected_items", [])),
-        "parity": len(report.get("schematic_parity", [])),
+        "parity": len(real_parity(report)),
     }
+
+def real_parity(report: dict) -> list:
+    """Parity items minus KiCad's own 'unconnected-(REF-PIN-PadN)' auto-nets: the GUI's Update PCB names
+    no-connect pads that way and kicad-cli then reports 'no corresponding pin' for each. Noise, not a mismatch."""
+    return [x for x in report.get("schematic_parity", []) if not any("[unconnected-(" in i.get("description", "") for i in x.get("items", []))]
 
 def by_type(report: dict) -> dict:
     out: dict = {}

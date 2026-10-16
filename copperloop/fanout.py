@@ -31,7 +31,7 @@ def snapshot(session: ipc.Session, work: Path) -> Path:
     doc = session.board.document
     proj = Path(doc.project.path); name = doc.board_filename
     board = work / name; board.write_text(session.board.get_as_string())
-    for ext in (".kicad_pro", ".kicad_sch"):
+    for ext in (".kicad_pro", ".kicad_sch", ".kicad_dru"):   # the .kicad_dru carries the custom rules (rule areas with finer clearances)
         src = proj / (Path(name).stem + ext)
         if src.exists(): shutil.copy(src, work / src.name)
     for extra in ("fp-lib-table", "sym-lib-table"):   # without these DRC reports every footprint as a library mismatch

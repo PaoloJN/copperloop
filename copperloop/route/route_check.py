@@ -42,7 +42,8 @@ def clr_of(net):
     for pat, cls in net_class.items():
         if fnmatch.fnmatch(net, pat): return class_clr.get(cls, min_clr)
     return class_clr.get('Default', min_clr)
-def clr(n1, n2): return max(clr_of(n1), clr_of(n2), min_clr)
+ENTRY_CLR = None   # per-entry override (spec key "clearance"): the author asserts a .kicad_dru rule area covers the entry; DRC stays the authority
+def clr(n1, n2): return ENTRY_CLR if ENTRY_CLR is not None else max(clr_of(n1), clr_of(n2), min_clr)
 
 KEEP = []   # planned PCB items kept alive; their GetEffectiveShape() supports Collide(SHAPE) unlike bare SHAPE_CIRCLE/SEGMENT
 # --- obstacle model
@@ -154,6 +155,7 @@ for e in spec:
     net, layer, w = e['net'], e.get('layer', 'B.Cu'), e.get('width', 0.3)
     vd, vdr = e.get('via_d', 0.6), e.get('via_drill', 0.3)
     probs = []
+    ENTRY_CLR = e.get('clearance')
     found, missing = drop_items(e)
     probs += [f'nothing to remove at {m}' for m in missing]
     pts = e.get('pts', [])
