@@ -54,6 +54,7 @@ cl see X Y W H [-l F.Cu,B.Cu]   # region PNG per layer (board mm); live board un
 cl fanout NET... [--apply]      # stub + via per pad into a plane; plan only unless --apply
 cl tidy [NET] [--apply] [--keep-ref U1]  # each pad keeps one stub + one via; chained/duplicate copper goes
 cl route SPEC.json [--apply]    # hand-planned routes: KiCad collision check with net-class clearances, one commit per entry, gate
+cl autoroute NET... [--apply]   # grid A* plan (numpy/scipy/shapely), then the same check / commit / gate per net
 ```
 
 A route spec is a JSON list of `{name, net, layer, width, pts: [[x,y],...], vias: [[x,y],...]}` in board mm. Keep the specs in the project (e.g. `routes/`); they are the record of every route the agent made.

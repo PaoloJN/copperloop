@@ -138,6 +138,26 @@ def route(spec: Path, apply_changes: bool, partial: bool):
     sys.exit(0 if r["ok"] else 1)
 
 @main.command()
+@click.argument("nets", nargs=-1, required=True)
+@click.option("--apply", "apply_changes", is_flag=True, help="apply the plans that pass the check (default: plan + check only)")
+@click.option("--router-arg", "-r", multiple=True, help="extra grid_router.py argument, e.g. -r --inner -r --layer-cost -r F.Cu=3")
+@click.option("--work", type=click.Path(path_type=Path), default=None, help="working directory (default: temp)")
+def autoroute(nets, apply_changes, router_arg, work):
+    """Grid A* plan for NETS on the LIVE board, then check / commit per net / gate."""
+    from . import autoroute as ar
+    try:
+        r = ar.run(list(nets), apply_changes, list(router_arg), work)
+    except ConnectionError as e:
+        click.echo(str(e), err=True); sys.exit(2)
+    click.echo(r["router_log_tail"])
+    for x in r["results"]:
+        click.echo(("OK    " if x["ok"] else "FAIL  ") + x["name"])
+        for p in x["problems"][:6]: click.echo("      " + p)
+    if r["after"] is None: click.echo(f"plan only; spec at {r['spec']}"); return
+    click.echo(f"applied {r['applied']} entries;  before {r['before']}  after {r['after']}  -> {'PASS' if r['ok'] else 'FAIL'}")
+    sys.exit(0 if r["ok"] else 1)
+
+@main.command()
 def version():
     """kicad-cli and kipy versions."""
     from .kicad import cli as kc

@@ -13,7 +13,7 @@ Driven by the Water Puck carrier (sensei-cup). A feature is added when that boar
 ## Milestone 2 — per-net routing transactions
 - [x] `cl tidy NET`: redundant plane-net copper removed, one commit per cluster, gated (2026-10-16: 81 items in 25 clusters on the puck, no change in opens)
 - [x] `cl route SPEC`: hand-planned polylines, KiCad collision check with net-class pair clearances → IPC commit → gate (2026-10-16: 3V3 under the FDC disc)
-- [ ] `cl route NET`: automatic plan (routelib A* / KiCadRoutingTools) feeding the same transaction
+- [x] `cl autoroute NET`: grid A* plan feeding the same transaction (2026-10-16; routes are legal but long, 2–3× straight-line on a crowded board, so bundles still get planned by hand)
 - [ ] `cl stitch`: GND via fence/array with the same gate
 - [ ] Freerouting rounds with per-net acceptance for the easy leftovers (nexatech pattern)
 - [ ] Violation → picture: render the region around each DRC item
