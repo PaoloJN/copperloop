@@ -123,11 +123,12 @@ def tidy(net, apply_changes, keep_ref):
 @click.option("--apply", "apply_changes", is_flag=True, help="create the routes that pass the check (default: check only)")
 @click.option("--partial", is_flag=True, help="with --apply: apply the passing entries even if others fail")
 @click.option("--board", "-b", type=click.Path(exists=True, path_type=Path), default=None, help="FILE mode (KiCad closed): check/apply against this board file instead of the live editor; on PASS the file is overwritten")
-def route(spec: Path, apply_changes: bool, partial: bool, board: Path | None):
+@click.option("--allow-opens", "allow_opens", is_flag=True, help="file mode: PASS even if unconnected items grew (clean-up specs that remove copper on purpose); errors still may not grow")
+def route(spec: Path, apply_changes: bool, partial: bool, board: Path | None, allow_opens: bool = False):
     """Check a JSON route spec against the LIVE board (KiCad collision shapes, net-class clearances), then apply it one undoable commit per entry and gate. With --board FILE, work on the file instead."""
     from . import routing
     try:
-        r = routing.run_file(spec, board, apply_changes, only_ok=not partial) if board else routing.run(spec, apply_changes, only_ok=not partial)
+        r = routing.run_file(spec, board, apply_changes, only_ok=not partial, allow_opens=allow_opens) if board else routing.run(spec, apply_changes, only_ok=not partial)
     except ConnectionError as e:
         click.echo(str(e), err=True); sys.exit(2)
     for x in r["results"]:

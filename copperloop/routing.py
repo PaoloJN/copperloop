@@ -75,9 +75,10 @@ def run(spec_path: Path, apply_changes: bool, only_ok: bool = True) -> dict:
     return res
 
 
-def run_file(spec_path: Path, board: Path, apply_changes: bool, only_ok: bool = True) -> dict:
+def run_file(spec_path: Path, board: Path, apply_changes: bool, only_ok: bool = True, allow_opens: bool = False) -> dict:
     """File mode (KiCad closed): check against BOARD, apply with route/apply_file.py into a scratch copy,
-    gate there, and on PASS copy only the .kicad_pcb back over BOARD."""
+    gate there, and on PASS copy only the .kicad_pcb back over BOARD. PASS = errors, unconnected and parity
+    did not grow; with allow_opens (clean-up specs that remove copper on purpose) unconnected may grow."""
     import shutil
     from . import gate
     from .fanout import kicad_python
@@ -97,7 +98,7 @@ def run_file(spec_path: Path, board: Path, apply_changes: bool, only_ok: bool = 
     if not out.exists(): raise RuntimeError(f"file apply failed:\n{r.stdout[-1500:]}\n{r.stderr[-1500:]}")
     shutil.copy(out, wb); shutil.copy(board.parent / board.with_suffix(".kicad_pro").name, work / board.with_suffix(".kicad_pro").name)   # SaveBoard clobbered the scratch .kicad_pro
     after = gate.run(wb, state_dir=work / "after"); res["after"] = after["now"]; res["applied"] = len(good)
-    res["ok"] = after["now"]["errors"] <= res["before"]["errors"] and after["now"]["unconnected"] <= res["before"]["unconnected"] and after["now"]["parity"] <= res["before"]["parity"]
+    res["ok"] = after["now"]["errors"] <= res["before"]["errors"] and (allow_opens or after["now"]["unconnected"] <= res["before"]["unconnected"]) and after["now"]["parity"] <= res["before"]["parity"]
     res["after_open_nets"] = after["open_nets"]
     if res["ok"]: shutil.copy(wb, board)
     return res
