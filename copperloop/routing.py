@@ -1,6 +1,6 @@
 """`cl route SPEC.json [--apply]`: hand-planned routes as gated transactions on the live board."""
 from __future__ import annotations
-import json, subprocess, tempfile
+import json, os, subprocess, tempfile
 from pathlib import Path
 from .kicad import ipc
 from .fanout import kicad_python, snapshot
@@ -72,4 +72,32 @@ def run(spec_path: Path, apply_changes: bool, only_ok: bool = True) -> dict:
     res["after"] = after["now"]
     res["ok"] = after["now"]["errors"] <= res["before"]["errors"] and after["now"]["unconnected"] <= res["before"]["unconnected"] and after["now"]["parity"] == 0
     res["after_open_nets"] = after["open_nets"]
+    return res
+
+
+def run_file(spec_path: Path, board: Path, apply_changes: bool, only_ok: bool = True) -> dict:
+    """File mode (KiCad closed): check against BOARD, apply with route/apply_file.py into a scratch copy,
+    gate there, and on PASS copy only the .kicad_pcb back over BOARD."""
+    import shutil
+    from . import gate
+    from .fanout import kicad_python
+    board = Path(board).resolve(); work = Path(tempfile.mkdtemp(prefix="copperloop-routefile-"))
+    for f in board.parent.iterdir():
+        if f.suffix in (".kicad_pcb", ".kicad_pro", ".kicad_sch", ".kicad_dru") or f.name in ("fp-lib-table", "sym-lib-table"): shutil.copy(f, work / f.name)
+    if (board.parent / "lib").is_dir(): os.symlink(board.parent / "lib", work / "lib")
+    wb = work / board.name
+    results = check(wb, spec_path)
+    res = {"work": str(work), "results": results, "applied": 0, "before": None, "after": None, "ok": None}
+    good = [r for r in results if r["ok"]]
+    if not apply_changes or not good: return res
+    if not only_ok and len(good) != len(results): raise RuntimeError("some routes failed the check")
+    res["before"] = gate.run(wb, state_dir=work / "before")["now"]
+    out = work / "out.kicad_pcb"; chk = work / "route-check.json"
+    r = subprocess.run([kicad_python(), str(Path(__file__).parent / "route" / "apply_file.py"), str(wb), str(spec_path), str(out), "--only-ok", str(chk)], capture_output=True, text=True)
+    if not out.exists(): raise RuntimeError(f"file apply failed:\n{r.stdout[-1500:]}\n{r.stderr[-1500:]}")
+    shutil.copy(out, wb); shutil.copy(board.parent / board.with_suffix(".kicad_pro").name, work / board.with_suffix(".kicad_pro").name)   # SaveBoard clobbered the scratch .kicad_pro
+    after = gate.run(wb, state_dir=work / "after"); res["after"] = after["now"]; res["applied"] = len(good)
+    res["ok"] = after["now"]["errors"] <= res["before"]["errors"] and after["now"]["unconnected"] <= res["before"]["unconnected"] and after["now"]["parity"] <= res["before"]["parity"]
+    res["after_open_nets"] = after["open_nets"]
+    if res["ok"]: shutil.copy(wb, board)
     return res
