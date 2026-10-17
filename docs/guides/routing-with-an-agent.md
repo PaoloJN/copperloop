@@ -30,3 +30,11 @@ Stack: F.Cu / GND plane / PWR (3V3 pour) / B.Cu. Round 46 mm board, nRF52840 mod
 
 ## The loop
 propose (collision-checked) → commit over IPC → `kicad-cli pcb drc --format json --schematic-parity` → keep only if violations and unconnected did not increase → render the region and look.
+
+## Lessons from the second day (2026-10-16)
+- **Escape plan before the first trace.** Write down, per pad of the densest part, which way it leaves and through which lane, and check lane capacity at the real clearances. Pin assignment then follows the plan, not the other way round. Two pin-swap passes came out of this.
+- **Placement follows signal flow.** Series resistors next to the LED they drive, gate pull-downs at the gate, test pads next to the pins they test. A script that places by symmetry produces a board that routes badly.
+- **Stack roles.** Signal / GND plane / signal / signal. A plane layer with zero traces is the correct result. The power pour on the second inner layer is not worth a whole layer on a low-current board; route signals on it and let the pour fill around them.
+- **Planner/applier split for parallel work.** Planners write specs against a frozen snapshot and run the file checker. One applier re-checks each spec against the live board and applies with the gate. Humans and agents can plan in parallel without colliding; only the applier commits.
+- **Fan-out vias are movable.** Most lane blockages were GND or 3V3 vias from the fan-out pass sitting in the way. Specs carry same-net removals so a via moves in the same commit as the route that needed the room.
+- **Update PCB from Schematic re-adds footprints whose UUID path does not match**, which duplicates them. Keep the schematic-linked copy, move it to the old spot, delete the other.
